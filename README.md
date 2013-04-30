@@ -171,7 +171,7 @@ Security
 --------
 
 Path names are normalized and correctly joined (no regex, string manipulation, etc).  The `path` module
-and built in decoding functions are used to correctly parse the web addresse supplied.
+and built in decoding functions are used to correctly parse the web addresses supplied.
 
 ```
 $ curl -i http://localhost:8080/../../../../../../../etc/passwd
@@ -184,7 +184,7 @@ Transfer-Encoding: chunked
 and on the server
 
 ```
-ENOENT, stat '/Users/dave/dev/node-static-route/etc/pass'
+ENOENT, stat '/Users/dave/dev/node-static-route/etc/passwd'
 ```
 
 Directory traversal is not possible, this module is stuck inside the directory you supply (or cwd).
