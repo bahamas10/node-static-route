@@ -161,7 +161,7 @@ be set to a string of the path to use to server static files.
 - `autoindex`: If true, a request to a directory will return an index page for
 the contents.  If false or unset, a request to a directory will return a 403.  Defaults to false
 - `logger`: The function to use to log error messages, defaults to `console.error`
-- `tryfiles': An array (defaults to []) of files to try first, like NGINX. For example, set `opts.tryfiles = ['index.html']` to
+- `tryfiles`: An array (defaults to []) of files to try first, like NGINX. For example, set `opts.tryfiles = ['index.html']` to
 to serve an index page if it exists
 
 ### `function(req, res)`
