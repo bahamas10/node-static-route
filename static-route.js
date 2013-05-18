@@ -26,8 +26,8 @@ function main(opts) {
   return staticroute;
 
   // static serving function
-  function staticroute(req, res) {
-    // `npm install easyreq` to have this variable set
+  function staticroute(req, res, s) {
+    // `npm install easyreq` to have req.urlparsed set
     var urlparsed = req.urlparsed || url.parse(req.url, true);
 
     // decode everything, substitute # but not /
@@ -37,7 +37,7 @@ function main(opts) {
     if (['HEAD', 'GET'].indexOf(req.method) === -1)
       return end(res, 501);
 
-    var file = path.join((opts.dir || process.cwd()), reqfile);
+    var file = path.join((opts.dir || process.cwd()), reqfile, s);
 
     // the user wants some actual data
     fs.stat(file, function(err, stats) {
