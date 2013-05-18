@@ -29,6 +29,8 @@ function main(opts) {
 
   // static serving function
   function staticroute(req, res) {
+    var tryfiles = opts.tryfiles.slice(0);
+
     // `npm install easyreq` to have req.urlparsed set
     var urlparsed = req.urlparsed || url.parse(req.url, true);
 
@@ -43,17 +45,14 @@ function main(opts) {
     tryfile();
 
     function tryfile() {
-      var file = path.join(f, opts.tryfiles.pop());
+      var file = path.join(f, tryfiles.pop());
       // the user wants some actual data
       fs.stat(file, function(err, stats) {
         if (err) {
           logger(err.message);
-          if (err.code === 'ENOENT') {
-            if (!opts.tryfiles.length) return end(res, 404);
-            tryfile();
-          } else {
-            end(res, 500);
-          }
+          if (tryfiles.length) return tryfile();
+
+          end(res, err.code === 'ENOENT' ? 404 : 500);
           return;
         }
 
