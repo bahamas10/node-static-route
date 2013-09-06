@@ -3,6 +3,8 @@ static-route
 
 A route for an http server to safely serve static files
 
+*now supports streaming and ranges*
+
 Installation
 ------------
 
