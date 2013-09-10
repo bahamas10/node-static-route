@@ -34,8 +34,8 @@ function main(opts) {
     // `npm install easyreq` to have req.urlparsed set
     var urlparsed = req.urlparsed || url.parse(req.url, true);
 
-    // decode everything, substitute # but not /
-    var reqfile = path.normalize(decodeURI(urlparsed.pathname).replace(/%23/g, '#'));
+    // decode everything, and then fight against dir traversal
+    var reqfile = path.normalize(decodeURIComponent(urlparsed.pathname));
 
     // unsupported methods
     if (['HEAD', 'GET'].indexOf(req.method) === -1)
