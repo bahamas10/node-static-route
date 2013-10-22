@@ -35,7 +35,10 @@ function main(opts) {
     var urlparsed = req.urlparsed || url.parse(req.url, true);
 
     // decode everything, and then fight against dir traversal
-    var reqfile = path.normalize(decodeURIComponent(urlparsed.pathname));
+    var pathname = urlparsed.pathname;
+    if (opts.slice && pathname.indexOf(opts.slice) === 0)
+      pathname = pathname.substr(opts.slice.length);
+    var reqfile = path.normalize(decodeURIComponent(pathname));
 
     // unsupported methods
     if (['HEAD', 'GET'].indexOf(req.method) === -1)

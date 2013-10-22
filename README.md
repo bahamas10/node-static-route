@@ -165,6 +165,7 @@ the contents.  If false or unset, a request to a directory will return a 403.  D
 - `logger`: The function to use to log error messages, defaults to `console.error`
 - `tryfiles`: An array (defaults to `[]`) of files to try first, like NGINX. For example, set `opts.tryfiles = ['index.html']` to
 serve an index page if it exists
+- `slice`: A prefix to `req.url` to slice off
 
 ### `function(req, res)`
 
