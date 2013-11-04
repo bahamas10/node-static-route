@@ -75,13 +75,15 @@ function main(opts) {
               return _file.filename + (_file.directory ? '/' : '');
             });
             files.sort(function(a, b) {
+              a = a.toLowerCase();
+              b = b.toLowerCase();
               var adir = a.indexOf('/') > -1;
               var bdir = b.indexOf('/') > -1;
               if (adir && !bdir)
                 return -1;
               else if (bdir && !adir)
                 return 1;
-              return b < a;
+              return a < b ? -1 : 1;
             });
             if (urlparsed.query.hasOwnProperty('json')) {
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
