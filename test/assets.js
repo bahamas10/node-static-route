@@ -9,6 +9,8 @@ var staticroute = require('../')({
 var host = 'localhost';
 var port = 9128;
 
+process.chdir(__dirname);
+
 var server = http.createServer(onrequest);
 server.listen(port, host, started);
 

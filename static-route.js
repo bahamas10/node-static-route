@@ -65,24 +65,37 @@ function main(opts) {
           if (!opts.autoindex) return end(res, 403);
 
           // json stringify the dir
-          fs.readdir(file, function(e, d) {
+          statall(file, function(e, files) {
             if (e) {
               logger(e.message);
               end(res, 500);
               return;
             }
-            d.sort();
-            d = ['.', '..'].concat(d);
+            files = files.map(function(_file) {
+              return _file.filename + (_file.directory ? '/' : '');
+            });
+            files.sort(function(a, b) {
+              var adir = a.indexOf('/') > -1;
+              var bdir = b.indexOf('/') > -1;
+              if (adir && !bdir)
+                return -1;
+              else if (bdir && !adir)
+                return 1;
+              return b < a;
+            });
             if (urlparsed.query.hasOwnProperty('json')) {
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
-              res.write(JSON.stringify(d));
+              res.write(JSON.stringify(files));
             } else {
               res.setHeader('Content-Type', 'text/html; charset=utf-8');
-              res.write('<ul>\n');
-              d.forEach(function(name) {
-                res.write('<li>' + name.link(path.join(urlparsed.pathname, name)) + '</li>\n');
+              res.write('<ul style="list-style: none; font-family: monospace;">\n');
+              files.forEach(function(_file) {
+                var linktext = _file;
+                var linkhref = path.join(urlparsed.pathname, _file);
+                res.write('<li>' + linktext.link(linkhref) + '</li>\n');
               });
               res.write('</ul>\n');
+              res.write('<hr />\n');
             }
             res.end();
           });
@@ -137,4 +150,29 @@ function main(opts) {
       });
     }
   }
+}
+
+function statall(dir, cb) {
+  var files = [];
+  fs.readdir(dir, function(err, d) {
+    if (err) {
+      cb(err);
+      return;
+    }
+    d = ['..'].concat(d);
+
+    var i = 0;
+    d.forEach(function(file) {
+      fs.stat(path.join(dir, file), function(_err, stats) {
+        i++;
+        if (!_err) {
+          stats.filename = file;
+          stats.directory = stats.isDirectory();
+          files.push(stats);
+        }
+        if (i === d.length)
+          cb(null, files);
+      });
+    });
+  });
 }
