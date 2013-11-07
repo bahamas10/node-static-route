@@ -4,7 +4,9 @@
 var fs = require('fs');
 var path = require('path');
 var url = require('url');
+var util = require('util');
 
+var ent = require('ent');
 var mime = require('mime');
 
 module.exports = main;
@@ -38,7 +40,13 @@ function main(opts) {
     var pathname = urlparsed.pathname;
     if (opts.slice && pathname.indexOf(opts.slice) === 0)
       pathname = pathname.substr(opts.slice.length);
-    var reqfile = path.normalize(decodeURIComponent(pathname));
+    var reqfile;
+    try {
+      reqfile = path.normalize(decodeURIComponent(pathname));
+    } catch (e) {
+      end(res, 500);
+      return;
+    }
 
     // unsupported methods
     if (['HEAD', 'GET'].indexOf(req.method) === -1)
@@ -90,14 +98,7 @@ function main(opts) {
               res.write(JSON.stringify(files));
             } else {
               res.setHeader('Content-Type', 'text/html; charset=utf-8');
-              res.write('<ul style="list-style: none; font-family: monospace;">\n');
-              files.forEach(function(_file) {
-                var linktext = _file;
-                var linkhref = path.join(urlparsed.pathname, _file);
-                res.write('<li>' + linktext.link(linkhref) + '</li>\n');
-              });
-              res.write('</ul>\n');
-              res.write('<hr />\n');
+              writehtml(res, urlparsed.pathname, files);
             }
             res.end();
           });
@@ -154,6 +155,8 @@ function main(opts) {
   }
 }
 
+// stat all files in a directory (non-recursively) and call back with
+// an array of all stat objects
 function statall(dir, cb) {
   var files = [];
   fs.readdir(dir, function(err, d) {
@@ -177,4 +180,24 @@ function statall(dir, cb) {
       });
     });
   });
+}
+
+// given a `res` object, base dir, and files array, write HTML
+// to the receiving end
+function writehtml(res, base, files) {
+  var title = ent.encode(util.format('Index of %s', base));
+  res.write('<!doctype html><html><head><title>\n');
+  res.write(title);
+  res.write('\n</title></head><body>\n');
+  res.write(util.format('<h1>%s</h1>', title));
+  res.write('<hr />\n');
+  res.write('<ul style="list-style: none; font-family: monospace;">\n');
+  files.forEach(function(file) {
+    var linktext = file;
+    var linkhref = path.join(base, file);
+    res.write('<li>' + linktext.link(linkhref) + '</li>\n');
+  });
+  res.write('</ul>\n');
+  res.write('<hr />\n');
+  res.write('</body></html>\n');
 }
