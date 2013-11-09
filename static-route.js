@@ -195,7 +195,8 @@ function writehtml(res, base, files) {
   files.forEach(function(file) {
     var linktext = file;
     var linkhref = path.join(base, file);
-    res.write('<li>' + linktext.link(linkhref) + '</li>\n');
+    res.write(util.format('<li><a href="%s">%s</a></li>\n',
+        ent.encode(linkhref), ent.encode(linktext)));
   });
   res.write('</ul>\n');
   res.write('<hr />\n');
