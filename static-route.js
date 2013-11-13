@@ -112,7 +112,7 @@ function main(opts) {
           if (req.headers['if-none-match'] === etag) {
             end(res, 304);
           } else if (range) {
-            var parts = range.replace(/bytes=/, '').split('-');
+            var parts = range.replace('bytes=', '').split('-');
             var partialstart = parts[0];
             var partialend = parts[1];
 
@@ -140,6 +140,9 @@ function main(opts) {
             } else {
               var rs = fs.createReadStream(file, {start: startrange, end: endrange});
               rs.pipe(res);
+              rs.on('error', function(e) {
+                end(res, err.code === 'ENOENT' ? 404 : 500);
+              });
               res.on('close', rs.destroy.bind(rs));
             }
           } else {
@@ -151,6 +154,9 @@ function main(opts) {
             } else {
               var rs = fs.createReadStream(file);
               rs.pipe(res);
+              rs.on('error', function(e) {
+                end(res, err.code === 'ENOENT' ? 404 : 500);
+              });
               res.on('close', rs.destroy.bind(rs));
             }
           }
