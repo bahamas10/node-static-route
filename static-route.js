@@ -124,6 +124,11 @@ function main(opts) {
               endrange = stats.size - 1;
             var chunksize = endrange - startrange + 1;
 
+            if (endrange <= startrange) {
+              end(res, 416);
+              return;
+            }
+
             res.statusCode = 206;
             res.setHeader('Content-Range', 'bytes ' + startrange + '-' + endrange + '/' + stats.size);
             res.setHeader('Accept-Ranges', 'bytes');
