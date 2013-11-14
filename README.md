@@ -20,11 +20,6 @@ var staticroute = require('static-route');
 // basic
 http.createServer(staticroute());
 // => this server will serve static files from `process.cwd()`
-
-// routes (`npm doc routes`)
-var router = new require('routes').Router();
-router.addRoute('/assets/*?', staticroute('./assets/'));
-// => any request to `/assets/*` will get served by this module
 ```
 
 ### Basic Invocation
