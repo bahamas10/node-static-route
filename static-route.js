@@ -37,16 +37,15 @@ function main(opts) {
     var urlparsed = req.urlparsed || url.parse(req.url, true);
 
     // decode everything, and then fight against dir traversal
-    var pathname = urlparsed.pathname;
-    if (opts.slice && pathname.indexOf(opts.slice) === 0)
-      pathname = pathname.substr(opts.slice.length);
     var reqfile;
     try {
-      reqfile = path.normalize(decodeURIComponent(pathname));
+      reqfile = path.normalize(decodeURIComponent(urlparsed.pathname));
     } catch (e) {
       end(res, 500);
       return;
     }
+    if (opts.slice && reqfile.indexOf(opts.slice) === 0)
+      reqfile = reqfile.substr(opts.slice.length);
 
     // unsupported methods
     if (['HEAD', 'GET'].indexOf(req.method) === -1)
@@ -61,7 +60,8 @@ function main(opts) {
       fs.stat(file, function(err, stats) {
         if (err) {
           logger(err.message);
-          if (tryfiles.length) return tryfile();
+          if (tryfiles.length)
+            return tryfile();
 
           end(res, err.code === 'ENOENT' ? 404 : 500);
           return;
@@ -70,7 +70,8 @@ function main(opts) {
         if (stats.isDirectory()) {
           // directory
           // forbidden
-          if (!opts.autoindex) return end(res, 403);
+          if (!opts.autoindex)
+            return end(res, 403);
 
           // json stringify the dir
           statall(file, function(e, files) {
@@ -104,8 +105,10 @@ function main(opts) {
           });
         } else {
           // file
-          var etag = '"' + stats.size + '-' + stats.mtime.getTime() + '"';
+          var etag = util.format('"%d-%d"', stats.size, stats.mtime.getTime());
           res.setHeader('Last-Modified', stats.mtime.toUTCString());
+          res.setHeader('Content-Type', mime.lookup(file));
+          res.setHeader('ETag', etag);
 
           // check cache and range
           var range = req.headers.range;
@@ -133,29 +136,25 @@ function main(opts) {
             res.setHeader('Content-Range', 'bytes ' + startrange + '-' + endrange + '/' + stats.size);
             res.setHeader('Accept-Ranges', 'bytes');
             res.setHeader('Content-Length', chunksize);
-            res.setHeader('Content-Type', mime.lookup(file));
-            res.setHeader('ETag', etag);
             if (req.method === 'HEAD') {
               res.end();
             } else {
               var rs = fs.createReadStream(file, {start: startrange, end: endrange});
               rs.pipe(res);
               rs.on('error', function(e) {
-                end(res, err.code === 'ENOENT' ? 404 : 500);
+                end(res, e.code === 'ENOENT' ? 404 : 500);
               });
               res.on('close', rs.destroy.bind(rs));
             }
           } else {
             res.setHeader('Content-Length', stats.size);
-            res.setHeader('Content-Type', mime.lookup(file));
-            res.setHeader('ETag', etag);
             if (req.method === 'HEAD') {
               res.end();
             } else {
               var rs = fs.createReadStream(file);
               rs.pipe(res);
               rs.on('error', function(e) {
-                end(res, err.code === 'ENOENT' ? 404 : 500);
+                end(res, e.code === 'ENOENT' ? 404 : 500);
               });
               res.on('close', rs.destroy.bind(rs));
             }

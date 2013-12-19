@@ -13,7 +13,7 @@ function started() {
   console.log('server started');
 
   http.request('http://localhost:9128/../../../../../../../../etc/passwd', function(res) {
-    console.log('GET /..../etc/passwd');
+    console.log('GET /../../../../../../../etc/passwd');
     console.log('-> statusCode = %d', res.statusCode);
     console.dir(res.headers);
     assert(res.statusCode === 404);
