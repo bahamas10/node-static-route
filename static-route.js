@@ -8,14 +8,10 @@ var util = require('util');
 
 var ent = require('ent');
 var mime = require('mime');
+var easyreq = require('easyreq');
 
 module.exports = main;
 
-// end `res` with statusCode = `code`
-function end(res, code) {
-  res.statusCode = code;
-  res.end();
-}
 
 // exported function to give a static route function
 function main(opts) {
@@ -25,37 +21,40 @@ function main(opts) {
   }
   opts.tryfiles = [''].concat((opts.tryfiles || []).reverse());
 
-  var logger = opts.logger || console.error.bind(console);
+  var logger = opts.logger || function() {};
 
   return staticroute;
 
   // static serving function
   function staticroute(req, res) {
-    var tryfiles = opts.tryfiles.slice(0);
+    easyreq(req, res);
 
-    // `npm install easyreq` to have req.urlparsed set
-    var urlparsed = req.urlparsed || url.parse(req.url, true);
+    // copy the array
+    var tryfiles = opts.tryfiles.slice(0);
 
     // decode everything, and then fight against dir traversal
     var reqfile;
     try {
-      reqfile = path.normalize(decodeURIComponent(urlparsed.pathname));
+      reqfile = path.normalize(decodeURIComponent(req.urlparsed.pathname));
     } catch (e) {
-      end(res, 500);
+      res.error(400);
       return;
     }
+
+    // slice off opts.slice
     if (opts.slice && reqfile.indexOf(opts.slice) === 0)
       reqfile = reqfile.substr(opts.slice.length);
 
     // unsupported methods
     if (['HEAD', 'GET'].indexOf(req.method) === -1)
-      return end(res, 501);
+      return res.end(501);
 
     var f = path.join((opts.dir || process.cwd()), reqfile);
-    tryfile();
 
+    tryfile();
     function tryfile() {
       var file = path.join(f, tryfiles.pop());
+
       // the user wants some actual data
       fs.stat(file, function(err, stats) {
         if (err) {
@@ -63,7 +62,10 @@ function main(opts) {
           if (tryfiles.length)
             return tryfile();
 
-          end(res, err.code === 'ENOENT' ? 404 : 500);
+          if (err.code === 'ENOENT')
+            res.notfound();
+          else
+            res.error(500);
           return;
         }
 
@@ -71,13 +73,13 @@ function main(opts) {
           // directory
           // forbidden
           if (!opts.autoindex)
-            return end(res, 403);
+            return res.error(403);
 
           // json stringify the dir
           statall(file, function(e, files) {
             if (e) {
               logger(e.message);
-              end(res, 500);
+              res.error(500);
               return;
             }
             files = files.map(function(_file) {
@@ -94,12 +96,12 @@ function main(opts) {
                 return 1;
               return a < b ? -1 : 1;
             });
-            if (urlparsed.query.hasOwnProperty('json')) {
+            if (req.urlparsed.query.hasOwnProperty('json')) {
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
               res.write(JSON.stringify(files));
             } else {
               res.setHeader('Content-Type', 'text/html; charset=utf-8');
-              writehtml(res, urlparsed.pathname, files);
+              writehtml(res, req.urlparsed.pathname, files);
             }
             res.end();
           });
@@ -113,8 +115,10 @@ function main(opts) {
           // check cache and range
           var range = req.headers.range;
           if (req.headers['if-none-match'] === etag) {
-            end(res, 304);
+            // etag matched, end the request
+            res.error(304);
           } else if (range) {
+            // range transfer
             var parts = range.replace('bytes=', '').split('-');
             var partialstart = parts[0];
             var partialend = parts[1];
@@ -128,7 +132,7 @@ function main(opts) {
             var chunksize = endrange - startrange + 1;
 
             if (endrange <= startrange) {
-              end(res, 416);
+              res.error(416);
               return;
             }
 
@@ -142,11 +146,15 @@ function main(opts) {
               var rs = fs.createReadStream(file, {start: startrange, end: endrange});
               rs.pipe(res);
               rs.on('error', function(e) {
-                end(res, e.code === 'ENOENT' ? 404 : 500);
+                if (e.code === 'ENOENT')
+                  res.notfound();
+                else
+                  res.error(500);
               });
               res.on('close', rs.destroy.bind(rs));
             }
           } else {
+            // no range
             res.setHeader('Content-Length', stats.size);
             if (req.method === 'HEAD') {
               res.end();
@@ -154,7 +162,10 @@ function main(opts) {
               var rs = fs.createReadStream(file);
               rs.pipe(res);
               rs.on('error', function(e) {
-                end(res, e.code === 'ENOENT' ? 404 : 500);
+                if (e.code === 'ENOENT')
+                  res.notfound();
+                else
+                  res.error(500);
               });
               res.on('close', rs.destroy.bind(rs));
             }
