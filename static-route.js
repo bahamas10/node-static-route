@@ -47,7 +47,7 @@ function main(opts) {
 
     // unsupported methods
     if (['HEAD', 'GET'].indexOf(req.method) === -1)
-      return res.end(501);
+      return res.error(501);
 
     var f = path.join((opts.dir || process.cwd()), reqfile);
 
