@@ -6,7 +6,7 @@ var path = require('path');
 var url = require('url');
 var util = require('util');
 
-var ent = require('ent');
+var he = require('he');
 var mime = require('mime');
 var easyreq = require('easyreq');
 
@@ -206,7 +206,7 @@ function statall(dir, cb) {
 // given a `res` object, base dir, and files array, write HTML
 // to the receiving end
 function writehtml(res, base, files) {
-  var title = ent.encode(util.format('Index of %s', base));
+  var title = he.encode(util.format('Index of %s', base));
   res.write('<!doctype html><html><head><title>\n');
   res.write(title);
   res.write('\n</title></head><body>\n');
@@ -217,7 +217,7 @@ function writehtml(res, base, files) {
     var linktext = file;
     var linkhref = path.join(base, file);
     res.write(util.format('<li><a href="%s">%s</a></li>\n',
-        ent.encode(linkhref), ent.encode(linktext)));
+        he.encode(linkhref), he.encode(linktext)));
   });
   res.write('</ul>\n');
   res.write('<hr />\n');
