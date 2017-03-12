@@ -96,7 +96,7 @@ function main(opts) {
                 return 1;
               return a < b ? -1 : 1;
             });
-            if (req.urlparsed.query.hasOwnProperty('json')) {
+            if (hap(req.urlparsed.query, 'json')) {
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
               res.write(JSON.stringify(files));
             } else {
@@ -222,4 +222,8 @@ function writehtml(res, base, files) {
   res.write('</ul>\n');
   res.write('<hr />\n');
   res.write('</body></html>\n');
+}
+
+function hap(o, p) {
+    return ({}).hasOwnProperty.call(o, p);
 }
