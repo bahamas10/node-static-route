@@ -1,6 +1,6 @@
 {
   "name": "static-route",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A route for an http server to safely serve static files",
   "author": "Dave Eddy <dave@daveeddy.com> (http://www.daveeddy.com)",
   "main": "./static-route.js",
