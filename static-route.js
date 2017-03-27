@@ -1,5 +1,7 @@
 /**
  * create a static route
+ *
+ * License: MIT
  */
 var fs = require('fs');
 var path = require('path');
@@ -8,10 +10,9 @@ var util = require('util');
 
 var he = require('he');
 var mime = require('mime');
-var easyreq = require('easyreq');
 
 module.exports = main;
-
+module.exports.streamfile = streamfile;
 
 // exported function to give a static route function
 function main(opts) {
@@ -27,17 +28,19 @@ function main(opts) {
 
   // static serving function
   function staticroute(req, res) {
-    easyreq(req, res);
+    logger('%s %s', req.method, req.url);
 
+    var parsed = url.parse(req.url, true);
     // copy the array
     var tryfiles = opts.tryfiles.slice(0);
 
     // decode everything, and then fight against dir traversal
     var reqfile;
     try {
-      reqfile = path.normalize(decodeURIComponent(req.urlparsed.pathname));
+      reqfile = path.normalize(decodeURIComponent(parsed.pathname));
     } catch (e) {
-      res.error(400);
+      res.statusCode = 400;
+      res.end();
       return;
     }
 
@@ -46,8 +49,11 @@ function main(opts) {
       reqfile = reqfile.substr(opts.slice.length);
 
     // unsupported methods
-    if (['HEAD', 'GET'].indexOf(req.method) === -1)
-      return res.error(501);
+    if (['HEAD', 'GET'].indexOf(req.method) === -1) {
+      res.statusCode = 501;
+      res.end();
+      return;
+    }
 
     var f = path.join((opts.dir || process.cwd()), reqfile);
 
@@ -62,24 +68,26 @@ function main(opts) {
           if (tryfiles.length)
             return tryfile();
 
-          if (err.code === 'ENOENT')
-            res.notfound();
-          else
-            res.error(500);
+          res.statusCode = (err.code === 'ENOENT') ? 404 : 500;
+          res.end();
           return;
         }
 
         if (stats.isDirectory()) {
           // directory
           // forbidden
-          if (!opts.autoindex)
-            return res.error(403);
+          if (!opts.autoindex) {
+            res.statusCode = 403;
+            res.end();
+            return;
+          }
 
           // json stringify the dir
           statall(file, function(e, files) {
             if (e) {
               logger(e.message);
-              res.error(500);
+              res.statusCode = 500;
+              res.end();
               return;
             }
             files = files.map(function(_file) {
@@ -96,84 +104,86 @@ function main(opts) {
                 return 1;
               return a < b ? -1 : 1;
             });
-            if (hap(req.urlparsed.query, 'json')) {
+            if (hap(parsed.query, 'json')) {
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
               res.write(JSON.stringify(files));
             } else {
               res.setHeader('Content-Type', 'text/html; charset=utf-8');
-              writehtml(res, req.urlparsed.pathname, files);
+              writehtml(res, parsed.pathname, files);
             }
             res.end();
           });
         } else {
-          // file
-          var etag = util.format('"%d-%d"', stats.size, stats.mtime.getTime());
-          res.setHeader('Last-Modified', stats.mtime.toUTCString());
-          res.setHeader('Content-Type', mime.lookup(file));
-          res.setHeader('ETag', etag);
-
-          // check cache and range
-          var range = req.headers.range;
-          if (req.headers['if-none-match'] === etag) {
-            // etag matched, end the request
-            res.error(304);
-          } else if (range) {
-            // range transfer
-            var parts = range.replace('bytes=', '').split('-');
-            var partialstart = parts[0];
-            var partialend = parts[1];
-
-            var startrange = parseInt(partialstart, 10);
-            var endrange = partialend ? parseInt(partialend, 10) : stats.size - 1;
-            if (!startrange)
-              startrange = 0;
-            if (!endrange)
-              endrange = stats.size - 1;
-            var chunksize = endrange - startrange + 1;
-
-            if (endrange <= startrange) {
-              res.error(416);
-              return;
-            }
-
-            res.statusCode = 206;
-            res.setHeader('Content-Range', 'bytes ' + startrange + '-' + endrange + '/' + stats.size);
-            res.setHeader('Accept-Ranges', 'bytes');
-            res.setHeader('Content-Length', chunksize);
-            if (req.method === 'HEAD') {
-              res.end();
-            } else {
-              var rs = fs.createReadStream(file, {start: startrange, end: endrange});
-              rs.pipe(res);
-              rs.on('error', function(e) {
-                if (e.code === 'ENOENT')
-                  res.notfound();
-                else
-                  res.error(500);
-              });
-              res.on('close', rs.destroy.bind(rs));
-            }
-          } else {
-            // no range
-            res.setHeader('Content-Length', stats.size);
-            if (req.method === 'HEAD') {
-              res.end();
-            } else {
-              var rs = fs.createReadStream(file);
-              rs.pipe(res);
-              rs.on('error', function(e) {
-                if (e.code === 'ENOENT')
-                  res.notfound();
-                else
-                  res.error(500);
-              });
-              res.on('close', rs.destroy.bind(rs));
-            }
-          }
+          streamfile(file, stats, req, res);
         }
       });
     }
   }
+}
+
+function streamfile(file, stats, req, res) {
+  var rs_opts;
+
+  var etag = util.format('"%d-%d"', stats.size, stats.mtime.getTime());
+  res.setHeader('Last-Modified', stats.mtime.toUTCString());
+  res.setHeader('Content-Type', mime.lookup(file));
+  res.setHeader('ETag', etag);
+
+  // check cache and range
+  var range = req.headers.range;
+  if (req.headers['if-none-match'] === etag) {
+    // etag matched, end the request
+    res.statusCode = 304;
+    res.end();
+  } else if (range) {
+    // range transfer
+    var parts = range.replace('bytes=', '').split('-');
+    var partialstart = parts[0];
+    var partialend = parts[1];
+
+    var startrange = parseInt(partialstart, 10);
+    var endrange = partialend ? parseInt(partialend, 10) : stats.size - 1;
+    if (!startrange)
+      startrange = 0;
+    if (!endrange)
+      endrange = stats.size - 1;
+    var chunksize = endrange - startrange + 1;
+
+    if (endrange <= startrange) {
+      res.statusCode = 416;
+      res.end();
+      return;
+    }
+
+    res.statusCode = 206;
+    res.setHeader('Content-Range', 'bytes ' + startrange + '-' + endrange + '/' + stats.size);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Content-Length', chunksize);
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
+
+    rs_opts = {
+      start: startrange,
+      end: endrange
+    };
+  } else {
+    // no range
+    res.setHeader('Content-Length', stats.size);
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
+  }
+
+  var rs = fs.createReadStream(file, rs_opts);
+  rs.pipe(res);
+  rs.on('error', function (err) {
+    res.statusCode = err.code === 'ENOENT' ? 404 : 500;
+    res.end();
+  });
+  res.on('close', rs.destroy.bind(rs));
 }
 
 // stat all files in a directory (non-recursively) and call back with
